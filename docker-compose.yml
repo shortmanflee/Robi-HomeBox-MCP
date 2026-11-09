@@ -1,0 +1,23 @@
+# HomeBox MCP server. Point HOMEBOX_URL (in .env) at your existing HomeBox instance.
+#
+# If HomeBox runs in another compose project, attach to its network instead of using a
+# LAN URL, e.g. uncomment `networks` below and set HOMEBOX_URL=http://homebox:7745
+services:
+  homebox-mcp:
+    build: .
+    image: homebox-mcp:latest
+    container_name: homebox-mcp
+    env_file: .env
+    ports:
+      - "${MCP_PUBLISH_PORT:-8000}:8000"
+    restart: unless-stopped
+    read_only: true
+    security_opt:
+      - no-new-privileges:true
+    cap_drop: [ALL]
+#    networks: [homebox]
+
+#networks:
+#  homebox:
+#    external: true
+#    name: homebox_default

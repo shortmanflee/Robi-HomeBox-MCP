@@ -9,7 +9,8 @@ services:
     container_name: homebox-mcp
     env_file: .env
     ports:
-      - "${MCP_PUBLISH_PORT:-8000}:8000"
+      # host port : container port (MCP_PORT is what the server listens on inside)
+      - "${MCP_PUBLISH_PORT:-${MCP_PORT:-8000}}:${MCP_PORT:-8000}"
     restart: unless-stopped
     read_only: true
     security_opt:

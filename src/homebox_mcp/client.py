@@ -15,6 +15,7 @@ log = logging.getLogger(__name__)
 
 REFRESH_MARGIN = timedelta(minutes=5)
 _FRACTION_RE = re.compile(r"(\.\d{6})\d+")
+_TITLE_RE = re.compile(r"<title>(.*?)</title>", re.IGNORECASE | re.DOTALL)
 
 Expect = Literal["json", "bytes", "text", "none", "response"]
 
@@ -48,10 +49,19 @@ def _bearer(token: str) -> str:
 
 
 def _error_message(resp: httpx.Response) -> str:
+    if resp.is_redirect:
+        target = resp.headers.get("location", "?")
+        return (
+            f"HOMEBOX_URL redirects ({resp.status_code}) to {target} - set HOMEBOX_URL to the "
+            "final address (e.g. https://...) or to HomeBox directly, bypassing the proxy"
+        )
     try:
         body = resp.json()
     except ValueError:
         text = resp.text.strip()
+        title = _TITLE_RE.search(text)
+        if title:  # HTML error page from a reverse proxy: keep just the title
+            return title.group(1).strip()
         return text[:300] or resp.reason_phrase
     if isinstance(body, dict):
         msg = str(body.get("error") or body.get("message") or resp.reason_phrase)
@@ -177,7 +187,7 @@ class HomeBoxClient:
             resp = await self._send(
                 method, path, params=params, json=json, files=files, data=data, force_login=True
             )
-        if resp.status_code >= 400:
+        if resp.status_code >= 300:  # redirects aren't followed (would turn POST into GET)
             raise HomeBoxError(resp.status_code, _error_message(resp))
         if expect == "response":
             return resp

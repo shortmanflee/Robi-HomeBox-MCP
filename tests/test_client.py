@@ -103,3 +103,30 @@ async def test_default_entity_type(hb_mock):
     hb = client()
     assert (await hb.default_entity_type(location=True))["id"] == "type-loc"
     assert (await hb.default_entity_type(location=False))["id"] == "type-item"
+
+
+async def test_redirecting_proxy_gives_actionable_error(hb_mock):
+    html = "<html><head><title>301 Moved Permanently</title></head><body>openresty</body></html>"
+    hb_mock["login"].mock(
+        return_value=Response(
+            301, text=html, headers={"Location": "https://hb.example/api/v1/users/login"}
+        )
+    )
+    hb_mock["status"].mock(
+        return_value=Response(
+            301, text=html, headers={"Location": "https://hb.example/api/v1/status"}
+        )
+    )
+    hb = client()
+    with pytest.raises(HomeBoxError, match=r"HOMEBOX_URL redirects \(301\) to https://hb.example"):
+        await hb.get("/tags")
+    with pytest.raises(HomeBoxError, match="HOMEBOX_URL redirects"):
+        await hb.status()
+
+
+async def test_html_error_page_reduced_to_title(hb_mock):
+    hb_mock.get("/tags").mock(
+        return_value=Response(502, text="<html><head><title>502 Bad Gateway</title></head></html>")
+    )
+    with pytest.raises(HomeBoxError, match=r"error 502: 502 Bad Gateway$"):
+        await client().get("/tags")

@@ -1,0 +1,26 @@
+# Local end-to-end stack: a throwaway HomeBox plus the MCP server.
+#   docker compose -f docker-compose.yml -f docker-compose.dev.yml up --build
+# Then open http://localhost:7745, register the service user from .env, and connect a
+# client to http://localhost:8000/mcp.
+services:
+  homebox:
+    image: ghcr.io/sysadminsmedia/homebox:0.27.1
+    container_name: homebox-dev
+    environment:
+      HBOX_LOG_LEVEL: info
+      HBOX_OPTIONS_ALLOW_REGISTRATION: "true"
+      # Required by HomeBox >= 0.27 (>= 32 bytes). Set it in .env.
+      HBOX_AUTH_API_KEY_PEPPER: ${HBOX_AUTH_API_KEY_PEPPER:?set HBOX_AUTH_API_KEY_PEPPER in .env (openssl rand -base64 48)}
+    ports:
+      - "7745:7745"
+    volumes:
+      - homebox-dev-data:/data
+
+  homebox-mcp:
+    environment:
+      HOMEBOX_URL: http://homebox:7745
+    depends_on:
+      - homebox
+
+volumes:
+  homebox-dev-data:
